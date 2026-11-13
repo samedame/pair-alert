@@ -1,0 +1,22 @@
+{
+ "sessions": 13526,
+ "S1": {
+  "bot": 13373,
+  "backtest": 13373,
+  "mismatch_days": 0,
+  "max_bp_diff": 0.0
+ },
+ "S2": {
+  "bot": 3192,
+  "backtest": 3192,
+  "mismatch_days": 0,
+  "max_bp_diff": 0.0
+ },
+ "stream": {
+  "days": 360,
+  "boundaries": 25920,
+  "events": 946,
+  "violations": 0
+ },
+ "pass": true
+}
