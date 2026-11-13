@@ -1,10 +1,10 @@
 # Setup
 
-1. **Create the repo.** On GitHub create `samedame/pair-alert-bot` (private is fine), empty, no README.
+1. **Create the repo.** On GitHub create `samedame/pair-alert` (private is fine), empty, no README.
 2. **Push the code.** Unzip, then in the folder:
    ```
    git init -b main && git add -A && git commit -m "pair-alert-bot v1.0.0"
-   git remote add origin https://github.com/samedame/pair-alert-bot.git && git push -u origin main
+   git remote add origin https://github.com/samedame/pair-alert.git && git push -u origin main
    ```
    The `tests` workflow runs on the push and should go green (19 tests, about a minute).
 3. **Let Actions commit.** Settings -> Actions -> General -> Workflow permissions -> Read and write permissions.
@@ -19,7 +19,7 @@
    - `DRY_RUN` set `true` to print instead of posting.
 6. **Start time.** GitHub's own schedule has been running late on this account, so treat the two cron lines in
    `pair-session.yml` as a backup and add the workflow to the Cloudflare `open-scheduler` Worker:
-   repo `samedame/pair-alert-bot`, workflow `pair-session.yml`, dispatch at 09:40 ET on weekdays, inputs
+   repo `samedame/pair-alert`, workflow `pair-session.yml`, dispatch at 09:40 ET on weekdays, inputs
    `trigger=cf-scheduler` (and `scheduled_for_et` if the Worker sets it). Anything from 09:31 to 09:55 ET works; the first
    decision is the 10:00 close.
 7. **First run.** Actions -> pair-session -> Run workflow. Outside market hours it exits at once ("session is over").

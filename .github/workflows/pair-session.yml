@@ -1,0 +1,64 @@
+name: pair-session
+
+# The live loop: wakes after every 5-minute close from 10:00 to 15:55 ET and posts ENTRY / EXIT alerts to Discord,
+# then writes the day's ledger and summary.
+#
+# Start-up: have the Cloudflare `open-scheduler` Worker dispatch this workflow at about 09:40 ET (docs/SETUP.md).
+# The two cron lines are only a DST-safe BACKUP. A late start is harmless: the engine replays the minutes it missed,
+# late alerts are flagged, and the sent ledger de-duplicates.
+on:
+  workflow_dispatch:
+    inputs:
+      scheduled_for_et:
+        description: "Set by open-scheduler (ignored by the bot)"
+        required: false
+        default: ""
+      trigger:
+        description: "manual | cf-scheduler | handoff"
+        required: false
+        default: "manual"
+  schedule:
+    - cron: "40 13 * * 1-5"   # 09:40 EDT (summer); at 08:40 EST (winter) the bot sees it is too early and exits
+    - cron: "40 14 * * 1-5"   # 09:40 EST (winter); at 10:40 EDT (summer) it queues behind the live run
+
+concurrency:
+  group: pair-session
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # commit state/ and ledger/
+  actions: write    # hand-off: dispatch the next run when the 6-hour job limit is near
+
+jobs:
+  session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - run: pip install -r requirements.txt
+
+      - name: Run the live loop
+        id: live
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TRADIER_API_KEY: ${{ secrets.TRADIER_API_KEY }}          # optional: live option bid/ask on every alert
+          TICKERS: ${{ vars.TICKERS }}                             # default SPY,QQQ,IWM
+          SETUPS: ${{ vars.SETUPS }}                               # default S1,S2
+          COMMISSION_PER_SIDE: ${{ vars.COMMISSION_PER_SIDE }}     # default 0.65 (the backtest's value)
+          DRY_RUN: ${{ vars.DRY_RUN }}
+          PAIRBOT_GIT_PUSH: "1"
+          PYTHONUNBUFFERED: "1"
+        run: python -m pairbot live --max-runtime-min 330
+
+      - name: Hand off to a fresh run
+        if: steps.live.outputs.more == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pair-session.yml --ref "${{ github.ref_name }}" -f trigger=handoff

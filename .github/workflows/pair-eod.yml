@@ -1,0 +1,53 @@
+name: pair-eod
+
+# Backup for the end-of-day step (the live loop normally does it at 15:57 ET). Safe to run twice: the day's ledger block
+# is replaced and the summary is posted only once unless `force` is set.
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Session date YYYY-MM-DD (default: today ET; Yahoo keeps about 30 days of minute bars)"
+        required: false
+        default: ""
+      force:
+        description: "Post the summary again"
+        required: false
+        default: "false"
+  schedule:
+    - cron: "25 20 * * 1-5"   # 16:25 EDT / 15:25 EST (too early in winter: the bars are incomplete and nothing is written)
+    - cron: "25 21 * * 1-5"   # 17:25 EDT / 16:25 EST
+
+concurrency:
+  group: pair-eod
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  eod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Reconcile the day
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TICKERS: ${{ vars.TICKERS }}
+          SETUPS: ${{ vars.SETUPS }}
+          COMMISSION_PER_SIDE: ${{ vars.COMMISSION_PER_SIDE }}
+          DRY_RUN: ${{ vars.DRY_RUN }}
+          PAIRBOT_GIT_PUSH: "1"
+          INPUT_DATE: ${{ inputs.date }}
+          INPUT_FORCE: ${{ inputs.force }}
+        run: |
+          ARGS=""
+          if [ -n "$INPUT_DATE" ]; then ARGS="$ARGS --date $INPUT_DATE"; fi
+          if [ "$INPUT_FORCE" = "true" ]; then ARGS="$ARGS --force"; fi
+          python -m pairbot eod $ARGS
